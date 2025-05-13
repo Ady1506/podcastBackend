@@ -9,4 +9,6 @@ CREATE TABLE IF NOT EXISTS users (
   phone VARCHAR(15) NOT NULL UNIQUE,
   account_type ENUM('free', 'premium') NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  verification_code VARCHAR(6),
+  verified BOOLEAN DEFAULT FALSE,
 ) 

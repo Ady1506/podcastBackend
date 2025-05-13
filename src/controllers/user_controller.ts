@@ -1,9 +1,10 @@
 import { Request, Response } from "express";
-import {createUser, findUserByEmail, findUserById, updateUserPassword } from "../models/user_model.ts";
+import {createUser, findUserByEmail, findUserById, updateUserPassword, updateUserVerificationCode } from "../models/user_model.ts";
 import { hashPassword, comparePassword } from "../utils/passwordUtils.ts";
 import { generateToken, tokenDuration, verifyToken } from "../utils/jwtUtils.ts";
 import { User } from "../models/user_model.ts";
-import { validateEmail, validatePassword, validatePhone, validateUsername } from "utils/validators.ts";
+import { validateEmail, validatePassword, validatePhone, validateUsername } from "../utils/validators.ts";
+import { sendVerificationEmail, sendEmail } from "../middleware/configEmail.ts";
 
 export const registerUser= async(req: Request, res: Response): Promise<void>=>{
     try{
@@ -35,6 +36,7 @@ export const registerUser= async(req: Request, res: Response): Promise<void>=>{
             return;
         }
         const hashedPassword= await hashPassword(password);
+        const verification_code= Math.floor(100000 + Math.random() * 900000).toString();
         const newUser: User= await createUser({
             username,
             first_name,
@@ -43,8 +45,10 @@ export const registerUser= async(req: Request, res: Response): Promise<void>=>{
             email,
             phone,
             account_type,
-            created_at
+            created_at,
+            verification_code
         });
+        sendVerificationEmail(email, verification_code);
         const token= generateToken(newUser.user_id);
 
         res.cookie('jwt',token,{httpOnly:true, maxAge: tokenDuration*1000});
@@ -57,6 +61,46 @@ export const registerUser= async(req: Request, res: Response): Promise<void>=>{
     }
     catch (error) {
         console.error('Error registering user:', error);
+        res.status(500).json({status:"failed",message: 'Internal server error'});
+    }
+}
+
+export const verifyUser= async(req:Request, res:Response):Promise<void>=>{
+    try{
+        const {verification_code}=req.body;
+        if(!verification_code){
+            res.status(400).json({message: 'Verification code is required'});
+            return;
+        }
+        const token= req.cookies.jwt;
+        if(!token){
+            res.status(401).json({message: 'Unauthorized'});
+            return;
+        }
+        const userId= verifyToken(token);
+        if(!userId){
+            res.status(401).json({message: 'Unauthorized'});
+            return;
+        }
+        const user= await findUserById(userId);
+        if(!user){
+            res.status(400).json({message: 'User not found'});
+            return;
+        }
+        if(user.verification_code !== verification_code){
+            res.status(400).json({message: 'Invalid verification code'});
+            return;
+        }
+        await updateUserVerificationCode(userId, null);
+        res.status(200).json({
+            message: 'User verified successfully',
+            status: "success",
+        });
+
+    }
+
+    catch (error) {
+        console.error('Error verifying user:', error);
         res.status(500).json({status:"failed",message: 'Internal server error'});
     }
 }
@@ -106,7 +150,7 @@ export const logoutUser= async(req:Request, res:Response): Promise<void>=>{
     res.status(200).json({message: 'User logged out successfully', status: "success"});
 }
 
-export const resetPassword= async(req:Request, res:Response): Promise<void>=>{
+export const changePassword= async(req:Request, res:Response): Promise<void>=>{
     try{
         const {password, new_password}=req.body;
         if(!password || !new_password){
@@ -156,6 +200,73 @@ export const resetPassword= async(req:Request, res:Response): Promise<void>=>{
     }
     catch (error) {
         console.error('Error resetting password:', error);
+        res.status(500).json({status:"failed",message: 'Internal server error'});
+    }
+}
+
+export const forgetPassword= async(req:Request, res:Response): Promise<void>=>{
+    try{
+        const {email}= req.body;
+        if(!email){
+            res.status(400).json({message: 'Email is required'});
+            return;
+        }
+        const user= await findUserByEmail(email);
+        if(!user){
+            res.status(400).json({message: 'User not found'});
+            return;
+        }
+        const verification_code= Math.floor(100000 + Math.random() * 900000).toString();
+        await updateUserVerificationCode(user.user_id, verification_code);
+        await sendVerificationEmail(email, verification_code);
+        res.status(200).json({
+            message: 'Verification code sent to email', 
+            status: "success",
+        });
+
+    }
+    catch (error) {
+        console.error('Error resetting password:', error);
+        res.status(500).json({status:"failed",message: 'Internal server error'});
+    }
+}
+
+export const resetForgottenPassword= async(req:Request, res:Response): Promise<void>=>{
+    try{
+        const {email, verification_code,new_password}= req.body;
+        if(!verification_code || !new_password){
+            res.status(400).json({message: 'Verification code and new password are required'});
+            return;
+        }
+        if(!validatePassword(new_password)){
+            res.status(400).json({message: 'Invalid new password'});
+            return;
+        }
+        const user= await findUserByEmail(email);
+        if(!user){
+            res.status(400).json({message: 'User not found'});
+            return;
+        }
+        if(user.verification_code !== verification_code){
+            res.status(400).json({message: 'Invalid verification code'});
+            return;
+        }
+        const hashedPassword= await hashPassword(new_password);
+        const updatedUser= await updateUserPassword(user.user_id, hashedPassword);
+        if(!updatedUser){
+            res.status(400).json({message: 'Error updating password'});
+            return;
+        }
+        await updateUserVerificationCode(user.user_id, null);
+        res.status(200).json({
+            message: 'Password updated successfully', 
+            status: "success",
+            user: updatedUser
+        });
+
+    }
+    catch (error) {
+        console.error('Error resetting forgotten password:', error);
         res.status(500).json({status:"failed",message: 'Internal server error'});
     }
 }

@@ -10,17 +10,19 @@ export interface User {
     phone?: string;
     account_type?: 'free' | 'premium';
     created_at?: Date;
+    verification_code?: string;
+    is_verified?: boolean;
 }
 
 export const createUser= async (user:User): Promise<User>=>{
     try{
-        const{username, first_name, last_name, password_hash, email, phone, account_type,created_at}=user;
+        const{username, first_name, last_name, password_hash, email, phone, account_type,created_at,verification_code}=user;
         const query=`
-            INSERT INTO users (username, first_name, last_name, password_hash, email, phone, account_type,created_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            INSERT INTO users (username, first_name, last_name, password_hash, email, phone, account_type,created_at,verification_code)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             RETURNING *;
         `;
-        const values=[username, first_name, last_name, password_hash, email, phone, account_type, created_at];
+        const values=[username, first_name, last_name, password_hash, email, phone, account_type, created_at, verification_code];
         const result= await client.query(query, values);
         return result.rows[0];
     }
@@ -82,5 +84,19 @@ export const updateUserPassword= async(userId: number, newPassword: string): Pro
     catch (error) {
         console.error('Error updating user password:', error);
         throw new Error('Error updating user password');
+    }
+}
+
+export const updateUserVerificationCode= async(userId: number, verification_code: string): Promise<User | null>=>{
+    try{
+        const query=`
+            UPDATE users SET verification_code = $1 WHERE user_id = $2 RETURNING *;
+        `;
+        const result= await client.query(query,[verification_code, userId]);
+        return result.rows.length>0 ? result.rows[0] : null;
+    }
+    catch (error) {
+        console.error('Error updating user verification code:', error);
+        throw new Error('Error updating user verification code');
     }
 }
