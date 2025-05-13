@@ -1,13 +1,16 @@
 import express from 'express';
 import cors from 'cors';
+import cookieParser from 'cookie-parser';
 import dotenv from 'dotenv';
 import userRoutes from './routes/user_routes.ts';
 import db,{createUserTable} from './database/db.ts';
 
-
 dotenv.config();
 
 const app = express();
+app.use(cookieParser());
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 const PORT = process.env.PORT || 3000;
 
 createUserTable();
@@ -16,7 +19,7 @@ app.use(cors({
     credentials: true,
     origin: '*'
 }));
-app.use(express.json());
+
 
 app.get('/', (req, res) => {
   res.send('Backend is running ');

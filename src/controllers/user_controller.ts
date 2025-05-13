@@ -167,6 +167,11 @@ export const changePassword= async(req:Request, res:Response): Promise<void>=>{
             res.status(400).json({message: 'Invalid new password'});
             return;
         }
+        console.log(req.cookies);
+        if(!req.cookies){
+            res.status(401).json({message: 'No cookies found'});
+            return;
+        }
         const token= req.cookies.jwt;
         if(!token){
             res.status(401).json({message: 'Unauthorized'});
@@ -208,6 +213,7 @@ export const changePassword= async(req:Request, res:Response): Promise<void>=>{
 
 export const forgetPassword= async(req:Request, res:Response): Promise<void>=>{
     try{
+        console.log(req.body);
         const {email}= req.body;
         if(!email){
             res.status(400).json({message: 'Email is required'});
