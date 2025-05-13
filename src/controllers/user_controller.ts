@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import {createUser, findUserByEmail, findUserById, updateUserPassword, updateUserVerificationCode } from "../models/user_model.ts";
+import {createUser, findUserByEmail, findUserById, updateUserPassword, updateUserVerificationCode, updateUserVerificationStatus } from "../models/user_model.ts";
 import { hashPassword, comparePassword } from "../utils/passwordUtils.ts";
 import { generateToken, tokenDuration, verifyToken } from "../utils/jwtUtils.ts";
 import { User } from "../models/user_model.ts";
@@ -8,7 +8,6 @@ import { sendVerificationEmail, sendEmail } from "../middleware/configEmail.ts";
 
 export const registerUser= async(req: Request, res: Response): Promise<void>=>{
     try{
-        console.log(req.body);
         const {username, first_name, last_name, password, email, phone, account_type,created_at}=req.body;
         if(!username || !first_name || !last_name || !password || !email || !phone || !account_type || !created_at){
             res.status(400).json({message: 'All fields are required'});
@@ -67,22 +66,16 @@ export const registerUser= async(req: Request, res: Response): Promise<void>=>{
 
 export const verifyUser= async(req:Request, res:Response):Promise<void>=>{
     try{
-        const {verification_code}=req.body;
+        const {email,verification_code}=req.body;
         if(!verification_code){
             res.status(400).json({message: 'Verification code is required'});
             return;
         }
-        const token= req.cookies.jwt;
-        if(!token){
-            res.status(401).json({message: 'Unauthorized'});
+        if(!email){
+            res.status(400).json({message: 'Email is required'});
             return;
         }
-        const userId= verifyToken(token);
-        if(!userId){
-            res.status(401).json({message: 'Unauthorized'});
-            return;
-        }
-        const user= await findUserById(userId);
+        const user= await findUserByEmail(email);
         if(!user){
             res.status(400).json({message: 'User not found'});
             return;
@@ -91,7 +84,8 @@ export const verifyUser= async(req:Request, res:Response):Promise<void>=>{
             res.status(400).json({message: 'Invalid verification code'});
             return;
         }
-        await updateUserVerificationCode(userId, null);
+        await updateUserVerificationStatus(user.user_id);
+        await updateUserVerificationCode(user.user_id, null);
         res.status(200).json({
             message: 'User verified successfully',
             status: "success",
@@ -108,6 +102,7 @@ export const verifyUser= async(req:Request, res:Response):Promise<void>=>{
 export const loginUser= async(req: Request, res: Response): Promise<void>=>{
     try{
         const {email,password}=req.body;
+        console.log(req.body);
         if(!email || !password){
             res.status(400).json({message: 'Email and password are required'});
             return;
@@ -125,6 +120,12 @@ export const loginUser= async(req: Request, res: Response): Promise<void>=>{
             res.status(400).json({message: 'User not found'});
             return;
         }
+        
+        if(user.verified === false){
+            res.status(400).json({message: 'User not verified'});
+            return;
+        }
+
         const isPasswordValid= await comparePassword(password, user.password_hash);
         if(!isPasswordValid){
             res.status(400).json({message: 'Invalid password'});
@@ -146,6 +147,7 @@ export const loginUser= async(req: Request, res: Response): Promise<void>=>{
 }
 
 export const logoutUser= async(req:Request, res:Response): Promise<void>=>{
+    console.log('Logout');
     res.cookie('jwt','',{maxAge:1});
     res.status(200).json({message: 'User logged out successfully', status: "success"});
 }

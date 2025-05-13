@@ -1,5 +1,3 @@
-import e from "express";
-
 const emailRegex: RegExp =/^(([^<>()[\]\\.,;:\s@\"]+(\.[^<>()[\]\\.,;:\s@\"]+)*)|(\".+\"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/;
 const phoneRegex: RegExp = /^\+\d{2}\d{10}$/;
 const passwordRegex: RegExp =/^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,255}$/;

@@ -1,4 +1,4 @@
-import client from '../db.ts';
+import client from '../database/db.ts';
 
 export interface User {
     user_id?: number;
@@ -11,7 +11,7 @@ export interface User {
     account_type?: 'free' | 'premium';
     created_at?: Date;
     verification_code?: string;
-    is_verified?: boolean;
+    verified?: boolean;
 }
 
 export const createUser= async (user:User): Promise<User>=>{
@@ -100,3 +100,17 @@ export const updateUserVerificationCode= async(userId: number, verification_code
         throw new Error('Error updating user verification code');
     }
 }
+
+export const updateUserVerificationStatus=async(user_id: number): Promise<User | null>=>{
+    try{
+        const query=`
+            UPDATE users SET verified = true WHERE user_id = $1 RETURNING *;
+        `;
+        const result= await client.query(query,[user_id]);
+        return result.rows.length>0 ? result.rows[0] : null;
+    }
+    catch (error) {
+        console.error('Error updating user verification status:', error);
+        throw new Error('Error updating user verification status');
+    }
+}   
