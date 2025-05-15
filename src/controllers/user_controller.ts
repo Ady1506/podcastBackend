@@ -102,7 +102,6 @@ export const verifyUser= async(req:Request, res:Response):Promise<void>=>{
 export const loginUser= async(req: Request, res: Response): Promise<void>=>{
     try{
         const {email,password}=req.body;
-        console.log(req.body);
         if(!email || !password){
             res.status(400).json({message: 'Email and password are required'});
             return;
@@ -275,6 +274,46 @@ export const resetForgottenPassword= async(req:Request, res:Response): Promise<v
     }
     catch (error) {
         console.error('Error resetting forgotten password:', error);
+        res.status(500).json({status:"failed",message: 'Internal server error'});
+    }
+}
+
+export const getUserDetails= async(req:Request, res: Response): Promise<void>=>{
+    try{
+        const token=req.cookies.jwt;
+        if(!token){
+            res.status(401).json({message: 'Unauthorized'});
+            return;
+        }
+        const userId=verifyToken(token);
+        if(!userId){
+            res.status(401).json({message: 'Unauthorized'});
+            return;
+        }
+        const user=await findUserById(userId);
+        if(!user){
+            res.status(400).json({message: 'User not found'});
+            return;
+        }
+        const userDetails={
+            user_id: user.user_id,
+            username: user.username,
+            first_name: user.first_name,
+            last_name: user.last_name,
+            email: user.email,
+            phone: user.phone,
+            account_type: user.account_type,
+            verified: user.verified,
+            workspace_counter: user.workspace_counter
+        }
+        res.status(200).json({
+            status: "success",
+            message: 'User details retrieved successfully',
+            user: userDetails
+        });
+    }
+    catch (error) {
+        console.error('Error getting user details:', error);
         res.status(500).json({status:"failed",message: 'Internal server error'});
     }
 }

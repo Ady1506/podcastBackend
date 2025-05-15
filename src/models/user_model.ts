@@ -12,6 +12,7 @@ export interface User {
     created_at?: Date;
     verification_code?: string;
     verified?: boolean;
+    workspace_counter?: number;
 }
 
 export const createUser= async (user:User): Promise<User>=>{
